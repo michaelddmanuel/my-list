@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My List</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --accent:#0f766e;
+    --bg:#f4f5f7;
+    --surface:#ffffff;
+    --text:#1c1c1e;
+    --muted:#6b7280;
+    --line:color-mix(in srgb, var(--text) 12%, transparent);
+    --row-alt:color-mix(in srgb, var(--surface) 93%, var(--text));
+    --done:color-mix(in srgb, var(--text) 45%, var(--surface));
+    --pad:14px; --fs:17px; --tap:46px; --radius:16px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0b0b0d; --surface:#17181c; --text:#f2f2f4; --muted:#9aa0aa;
+    --line:color-mix(in srgb, var(--text) 16%, transparent);
+    --row-alt:color-mix(in srgb, var(--surface) 88%, var(--text));
+    --done:color-mix(in srgb, var(--text) 40%, var(--surface));
+  }
+  html[data-size="s"]{--pad:10px; --fs:15px; --tap:40px;}
+  html[data-size="l"]{--pad:20px; --fs:21px; --tap:58px;}
+  html[data-size="xl"]{--pad:26px; --fs:26px; --tap:70px;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--text); overflow-x:hidden;
+    font:var(--fs)/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+  .wrap{max-width:720px; width:100%; margin:0 auto; padding:16px 14px 120px;}
+  header{display:flex; align-items:center; gap:12px; margin:6px 2px 16px;}
+  header h1{font-size:calc(var(--fs) + 6px); margin:0; font-weight:650; letter-spacing:.2px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .iconbtn{width:var(--tap); height:var(--tap); min-width:var(--tap); border:1px solid var(--line);
+    background:var(--surface); color:var(--text); border-radius:12px; font-size:calc(var(--fs) + 2px);
+    cursor:pointer; display:grid; place-items:center;}
+  .iconbtn:active{transform:scale(.96);}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:10px; margin-bottom:14px;}
+  .addrow{display:flex; gap:8px; align-items:center; min-width:0;}
+  .addrow input[type=text]{flex:1 1 0; width:0; min-width:0; height:var(--tap); border:1px solid var(--line); background:var(--bg);
+    color:var(--text); border-radius:12px; padding:0 14px; font-size:var(--fs); outline:none;}
+  .addrow .btn{flex:0 0 auto;} .addrow .iconbtn{flex:0 0 auto;}
+  .addrow input[type=text]:focus{border-color:var(--accent);}
+  .btn{height:var(--tap); border:none; border-radius:12px; padding:0 18px; font-size:var(--fs); font-weight:600;
+    background:var(--accent); color:#fff; cursor:pointer;}
+  .btn:active{filter:brightness(.94);}
+  .btn.ghost{background:transparent; color:var(--accent); border:1px solid var(--line); font-weight:600;}
+  .mic.rec{background:#dc2626; color:#fff; border-color:#dc2626; animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.45);}50%{box-shadow:0 0 0 10px rgba(220,38,38,0);}}
+  .quick summary{cursor:pointer; color:var(--muted); font-size:calc(var(--fs) - 2px); padding:8px 2px; list-style:none;}
+  .quick summary::-webkit-details-marker{display:none;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; padding:8px 2px 4px;}
+  .chip{border:1px solid var(--line); background:var(--bg); color:var(--text); border-radius:999px;
+    padding:8px 14px; font-size:calc(var(--fs) - 2px); cursor:pointer;}
+  .chip:active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  ul.list{list-style:none; margin:0; padding:0;}
+  li.item{display:flex; align-items:center; gap:12px; padding:var(--pad) 12px; border-radius:12px;}
+  li.item:nth-child(even){background:var(--row-alt);}
+  .check{width:calc(var(--tap) - 8px); height:calc(var(--tap) - 8px); min-width:calc(var(--tap) - 8px);
+    border:2px solid var(--accent); border-radius:9px; display:grid; place-items:center; cursor:pointer;
+    font-size:var(--fs); color:#fff; background:transparent;}
+  .item.done .check{background:var(--accent);}
+  .item.done .txt{color:var(--done); text-decoration:line-through;}
+  .txt{flex:1; min-width:0; word-break:break-word;}
+  .qty{display:flex; align-items:center; gap:2px;}
+  .qty button{width:calc(var(--tap) - 10px); height:calc(var(--tap) - 10px); border:1px solid var(--line);
+    background:var(--bg); color:var(--text); border-radius:9px; font-size:var(--fs); cursor:pointer;}
+  .qty b{min-width:30px; text-align:center; font-variant-numeric:tabular-nums;}
+  .del{border:none; background:transparent; color:var(--muted); font-size:calc(var(--fs) + 6px); cursor:pointer; width:var(--tap);}
+  .empty{color:var(--muted); text-align:center; padding:40px 10px;}
+  .foot{display:flex; align-items:center; gap:10px; margin-top:8px; color:var(--muted); font-size:calc(var(--fs) - 3px); flex-wrap:wrap;}
+  .foot .grow{flex:1; min-width:80px;}
+  .settings{position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; z-index:20;}
+  .settings.open{display:flex;}
+  .sheet{background:var(--surface); width:100%; max-width:720px; margin:0 auto; border-radius:20px 20px 0 0;
+    padding:18px 16px calc(20px + env(safe-area-inset-bottom)); border:1px solid var(--line);}
+  .sheet h2{margin:2px 2px 14px; font-size:calc(var(--fs)+2px);}
+  .set-row{display:flex; align-items:center; gap:10px; margin:14px 2px; flex-wrap:wrap;}
+  .set-row .lbl{width:74px; color:var(--muted); font-size:calc(var(--fs) - 2px);}
+  .swatches{display:flex; gap:10px; flex-wrap:wrap;}
+  .sw{width:34px; height:34px; border-radius:50%; cursor:pointer; border:2px solid transparent;}
+  .sw.on{border-color:var(--text);}
+  .seg{display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .seg button{border:none; background:transparent; color:var(--text); padding:8px 14px; cursor:pointer; font-size:calc(var(--fs) - 2px);}
+  .seg button.on{background:var(--accent); color:#fff;}
+  .installhint{margin-top:10px; color:var(--muted); font-size:calc(var(--fs) - 3px); line-height:1.5;}
+  .syncdot{font-size:calc(var(--fs) - 4px);}
+  @media(min-width:560px){ .del{width:auto; padding:0 8px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title">My List</h1>
+    <button class="iconbtn" id="themeBtn" title="Light / dark" aria-label="Toggle light or dark">◐</button>
+    <button class="iconbtn" id="setBtn" title="Settings" aria-label="Settings">⚙</button>
+  </header>
+
+  <div class="card">
+    <div class="addrow">
+      <input type="text" id="add" list="common" placeholder="Add an item…" autocomplete="off" enterkeyhint="done">
+      <button class="iconbtn mic" id="micBtn" title="Add by voice" aria-label="Add by voice">🎤</button>
+      <button class="btn" id="addBtn">Add</button>
+    </div>
+    <datalist id="common"></datalist>
+    <details class="quick" id="quick">
+      <summary>▾ Quick add — common items</summary>
+      <div class="chips" id="chips"></div>
+    </details>
+  </div>
+
+  <ul class="list" id="list"></ul>
+  <div class="empty" id="empty">Nothing here yet. Add an item, tap a quick‑add chip, or use the 🎤 mic.</div>
+
+  <div class="foot">
+    <span class="grow" id="count"></span>
+    <span class="syncdot" id="syncdot"></span>
+    <button class="btn ghost" id="clearDone">Clear ticked</button>
+    <button class="btn ghost" id="clearAll">Clear all</button>
+  </div>
+</div>
+
+<div class="settings" id="settings">
+  <div class="sheet">
+    <h2>Settings</h2>
+    <div class="set-row"><span class="lbl">Colour</span><div class="swatches" id="swatches"></div></div>
+    <div class="set-row"><span class="lbl">Mode</span>
+      <div class="seg" id="modeSeg"><button data-mode="light">Light</button><button data-mode="dark">Dark</button></div>
+    </div>
+    <div class="set-row"><span class="lbl">Size</span>
+      <div class="seg" id="sizeSeg"><button data-size="s">S</button><button data-size="m">M</button><button data-size="l">L</button><button data-size="xl">XL</button></div>
+    </div>
+    <div class="installhint" id="installHint"></div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn" id="installBtn" style="display:none; flex:1;">Install app</button>
+      <button class="btn ghost" id="closeSet" style="flex:1;">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="sync.js"></script>
+<script>
+(function(){
+  "use strict";
+  var KEY_ITEMS="list_items_v1", KEY_SET="list_settings_v1", KEY_CUSTOM="list_custom_v1", KEY_STAMP="list_stamp_v1";
+  var COMMON=["Fuel","Bread","Milk","Sugar","Eggs","Butter","Coffee","Tea","Rice","Salt","Pepper","Cooking oil","Flour","Cheese","Chicken","Beef","Onions","Potatoes","Tomatoes","Carrots","Bananas","Apples","Toilet paper","Soap","Toothpaste","Shampoo","Washing powder","Dish soap","Bin bags","Water","Juice","Cereal","Pasta","Beans","Yoghurt"];
+  var ACCENTS=["#0f766e","#2563eb","#7c3aed","#db2777","#dc2626","#ea580c","#ca8a04","#16a34a","#0891b2","#475569"];
+
+  function load(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
+  function saveRaw(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+
+  var items=load(KEY_ITEMS,[]);
+  var custom=load(KEY_CUSTOM,[]);
+  var stamp=load(KEY_STAMP,0);
+  var settings=load(KEY_SET,{accent:ACCENTS[0], mode:null, size:"m"});
+  if(settings.mode===null){ settings.mode=(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"; }
+
+  var $=function(id){return document.getElementById(id);};
+  var listEl=$("list"), emptyEl=$("empty"), countEl=$("count"), addEl=$("add"), syncdot=$("syncdot");
+
+  // save items + push to sync (last-write-wins by stamp)
+  function commit(){ stamp=Date.now(); saveRaw(KEY_ITEMS,items); saveRaw(KEY_STAMP,stamp); if(window.ListSync&&ListSync.push){ ListSync.push(items,stamp); } }
+
+  function applySettings(){
+    document.documentElement.setAttribute("data-theme", settings.mode);
+    document.documentElement.setAttribute("data-size", settings.size);
+    document.documentElement.style.setProperty("--accent", settings.accent);
+    var m=document.querySelector('meta[name=theme-color]'); if(m) m.setAttribute("content", settings.accent);
+    saveRaw(KEY_SET, settings);
+    Array.prototype.forEach.call(document.querySelectorAll("#swatches .sw"),function(s){ s.classList.toggle("on", s.dataset.c===settings.accent); });
+    Array.prototype.forEach.call(document.querySelectorAll("#modeSeg button"),function(b){ b.classList.toggle("on", b.dataset.mode===settings.mode); });
+    Array.prototype.forEach.call(document.querySelectorAll("#sizeSeg button"),function(b){ b.classList.toggle("on", b.dataset.size===settings.size); });
+  }
+
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+  function addItem(name){
+    name=(name||"").trim(); if(!name) return;
+    var known=COMMON.concat(custom).map(function(x){return x.toLowerCase();});
+    if(known.indexOf(name.toLowerCase())===-1){ custom.push(name); saveRaw(KEY_CUSTOM,custom); buildCommon(); }
+    var found=null;
+    for(var i=0;i<items.length;i++){ if(!items[i].done && items[i].text.toLowerCase()===name.toLowerCase()){ found=items[i]; break; } }
+    if(found){ found.qty=(found.qty||1)+1; } else { items.push({id:uid(), text:name, qty:1, done:false}); }
+    commit(); render();
+  }
+
+  function render(){
+    var order=items.map(function(it,ix){return {it:it,ix:ix};});
+    order.sort(function(a,b){ if(a.it.done!==b.it.done) return a.it.done?1:-1; return a.ix-b.ix; });
+    listEl.innerHTML="";
+    order.forEach(function(o){
+      var it=o.it;
+      var li=document.createElement("li"); li.className="item"+(it.done?" done":"");
+      var chk=document.createElement("button"); chk.className="check"; chk.setAttribute("aria-label","Tick"); chk.textContent=it.done?"✓":"";
+      chk.onclick=function(){ it.done=!it.done; commit(); render(); };
+      var txt=document.createElement("span"); txt.className="txt"; txt.textContent=it.text;
+      var qty=document.createElement("span"); qty.className="qty";
+      var minus=document.createElement("button"); minus.textContent="−"; minus.onclick=function(){ it.qty=Math.max(1,(it.qty||1)-1); commit(); render(); };
+      var num=document.createElement("b"); num.textContent="×"+(it.qty||1);
+      var plus=document.createElement("button"); plus.textContent="+"; plus.onclick=function(){ it.qty=(it.qty||1)+1; commit(); render(); };
+      qty.appendChild(minus); qty.appendChild(num); qty.appendChild(plus);
+      var del=document.createElement("button"); del.className="del"; del.setAttribute("aria-label","Delete"); del.textContent="×";
+      del.onclick=function(){ items=items.filter(function(x){return x.id!==it.id;}); commit(); render(); };
+      li.appendChild(chk); li.appendChild(txt); li.appendChild(qty); li.appendChild(del);
+      listEl.appendChild(li);
+    });
+    emptyEl.style.display=items.length?"none":"block";
+    var done=items.filter(function(x){return x.done;}).length;
+    countEl.textContent=items.length?(items.length+" item"+(items.length!==1?"s":"")+" · "+done+" ticked"):"";
+  }
+
+  function buildCommon(){
+    var dl=$("common"); dl.innerHTML="";
+    COMMON.concat(custom).forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); });
+    var chips=$("chips"); chips.innerHTML="";
+    COMMON.forEach(function(n){ var c=document.createElement("button"); c.className="chip"; c.textContent=n; c.onclick=function(){ addItem(n); }; chips.appendChild(c); });
+  }
+
+  $("addBtn").onclick=function(){ addItem(addEl.value); addEl.value=""; addEl.focus(); };
+  addEl.addEventListener("keydown",function(e){ if(e.key==="Enter"){ addItem(addEl.value); addEl.value=""; } });
+  $("clearDone").onclick=function(){ items=items.filter(function(x){return !x.done;}); commit(); render(); };
+  $("clearAll").onclick=function(){ if(items.length && confirm("Clear the whole list?")){ items=[]; commit(); render(); } };
+
+  $("themeBtn").onclick=function(){ settings.mode=(settings.mode==="dark")?"light":"dark"; applySettings(); };
+  $("setBtn").onclick=function(){ $("settings").classList.add("open"); };
+  $("closeSet").onclick=function(){ $("settings").classList.remove("open"); };
+  $("settings").addEventListener("click",function(e){ if(e.target===this) this.classList.remove("open"); });
+  var sw=$("swatches"); ACCENTS.forEach(function(c){ var b=document.createElement("button"); b.className="sw"; b.dataset.c=c; b.style.background=c; b.onclick=function(){ settings.accent=c; applySettings(); }; sw.appendChild(b); });
+  Array.prototype.forEach.call(document.querySelectorAll("#modeSeg button"),function(b){ b.onclick=function(){ settings.mode=b.dataset.mode; applySettings(); }; });
+  Array.prototype.forEach.call(document.querySelectorAll("#sizeSeg button"),function(b){ b.onclick=function(){ settings.size=b.dataset.size; applySettings(); }; });
+
+  var micBtn=$("micBtn");
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ micBtn.style.display="none"; }
+  else{
+    var rec=new SR(); rec.lang="en-US"; rec.interimResults=false; rec.maxAlternatives=1; var listening=false;
+    micBtn.onclick=function(){ try{ if(listening){ rec.stop(); } else { rec.start(); } }catch(e){} };
+    rec.onstart=function(){ listening=true; micBtn.classList.add("rec"); };
+    rec.onend=function(){ listening=false; micBtn.classList.remove("rec"); };
+    rec.onerror=function(){ listening=false; micBtn.classList.remove("rec"); };
+    rec.onresult=function(ev){ var t=ev.results[0][0].transcript||""; t.split(/,| and | then /i).forEach(function(part){ addItem(part); }); };
+  }
+
+  var deferred=null, installBtn=$("installBtn"), installHint=$("installHint");
+  window.addEventListener("beforeinstallprompt",function(e){ e.preventDefault(); deferred=e; installBtn.style.display="block"; });
+  installBtn.onclick=function(){ if(deferred){ deferred.prompt(); deferred=null; installBtn.style.display="none"; } };
+  installHint.innerHTML="Install to your device: on <b>Windows 11</b> click the install icon in the browser address bar (or this button). On the <b>phone</b>, open the browser menu and tap <b>Add to Home screen</b>. It then works offline like a normal app.";
+
+  if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
+
+  // sync layer (dormant until sync.js is configured)
+  if(window.ListSync&&ListSync.init){
+    ListSync.init({
+      onStatus:function(s){ syncdot.textContent = s? ("· "+s) : ""; },
+      onRemote:function(rem){
+        if(rem && typeof rem.stamp==="number" && rem.stamp>stamp && Array.isArray(rem.items)){
+          items=rem.items; stamp=rem.stamp; saveRaw(KEY_ITEMS,items); saveRaw(KEY_STAMP,stamp); render();
+        }
+      },
+      current:function(){ return {items:items, stamp:stamp}; }
+    });
+  }
+
+  buildCommon(); applySettings(); render();
+})();
+</script>
+</body>
+</html>
