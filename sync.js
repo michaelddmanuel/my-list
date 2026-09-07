@@ -6,6 +6,7 @@
   "use strict";
   var LID = "main";
   var CFG_KEY = "list_sync_cfg";
+  var justSet = false;
   function getCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY) || "null"); } catch(e){ return null; } }
   function setCfg(c){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch(e){} }
 
@@ -15,6 +16,7 @@
     var s = qs.get("sync");
     if(s){
       setCfg({ dbUrl: s.replace(/\/+$/,"") });
+      justSet = true;
       qs.delete("sync");
       var rest = qs.toString();
       history.replaceState(null, "", location.pathname + (rest ? "?"+rest : "") + location.hash);
@@ -44,6 +46,7 @@
       pull(); timer=setInterval(pull, 4000); window.addEventListener("online", pull);
       document.addEventListener("visibilitychange", function(){ if(!document.hidden) pull(); }); },
     push:push,
-    configured:function(){ return enabled(); }
+    configured:function(){ return enabled(); },
+    justConfigured:function(){ return justSet; }
   };
 })();

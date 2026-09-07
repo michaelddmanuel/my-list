@@ -89,11 +89,17 @@
   .seg button{border:none; background:transparent; color:var(--text); padding:8px 14px; cursor:pointer; font-size:calc(var(--fs) - 2px);}
   .seg button.on{background:var(--accent); color:#fff;}
   .installhint{margin-top:10px; color:var(--muted); font-size:calc(var(--fs) - 3px); line-height:1.5;}
-  .syncdot{font-size:calc(var(--fs) - 4px);}
+  .syncdot{font-size:calc(var(--fs) - 4px); display:inline-flex; align-items:center; gap:5px;}
+  .syncdot.on{color:#16a34a;} .syncdot.off{color:var(--muted);}
+  .toast{position:fixed; left:50%; top:14px; transform:translate(-50%,-160%); background:#16a34a; color:#fff;
+    padding:13px 20px; border-radius:12px; font-size:calc(var(--fs) - 1px); font-weight:600; z-index:50;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); transition:transform .35s ease; max-width:92vw; text-align:center;}
+  .toast.show{transform:translate(-50%,0);}
   @media(min-width:560px){ .del{width:auto; padding:0 8px;} }
 </style>
 </head>
 <body>
+<div id="toast" class="toast" role="status"></div>
 <div class="wrap">
   <header>
     <h1 id="title">My List</h1>
@@ -253,10 +259,15 @@
 
   if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
 
-  // sync layer (dormant until sync.js is configured)
+  // sync layer (dormant until configured via the ?sync= setup link)
+  function showToast(msg){ var t=document.getElementById("toast"); if(!t) return; t.textContent=msg; t.classList.add("show"); setTimeout(function(){ t.classList.remove("show"); }, 4000); }
   if(window.ListSync&&ListSync.init){
     ListSync.init({
-      onStatus:function(s){ syncdot.textContent = s? ("· "+s) : ""; },
+      onStatus:function(s){
+        if(s==="synced"||s==="sync on"){ syncdot.className="syncdot on"; syncdot.textContent="\u25CF Synced"; }
+        else if(s==="offline"){ syncdot.className="syncdot off"; syncdot.textContent="\u25CF Can\u2019t reach sync"; }
+        else { syncdot.className="syncdot"; syncdot.textContent=""; }
+      },
       onRemote:function(rem){
         if(rem && typeof rem.stamp==="number" && rem.stamp>stamp && Array.isArray(rem.items)){
           items=rem.items; stamp=rem.stamp; saveRaw(KEY_ITEMS,items); saveRaw(KEY_STAMP,stamp); render();
@@ -264,6 +275,7 @@
       },
       current:function(){ return {items:items, stamp:stamp}; }
     });
+    if(ListSync.justConfigured && ListSync.justConfigured()){ showToast("\u2713 Sync turned on \u2014 this device is now linked."); }
   }
 
   buildCommon(); applySettings(); render();
