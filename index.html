@@ -44,9 +44,9 @@
   body{margin:0; background:var(--bd-bg); color:var(--bd-text); font-family:var(--font); font-size:var(--fs); font-weight:var(--fw);
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     -webkit-text-size-adjust:100%; touch-action:manipulation;}
-  .wrap{max-width:1000px; margin:0 auto; padding:12px 10px 40px;}
-  header{display:flex; align-items:center; gap:10px; margin:6px 4px 12px;}
-  header h1{flex:1; min-width:0; margin:0; font-size:calc(var(--fs) + 8px); font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .wrap{max-width:1000px; margin:0 auto; padding:5px 8px 18px;}
+  header{display:flex; align-items:center; gap:10px; margin:2px 2px 7px;}
+  header h1{flex:1; min-width:0; margin:0; font-size:calc(var(--fs) + 7px); font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .iconbtn{width:var(--tap); height:var(--tap); min-width:var(--tap); border:1px solid var(--line); background:var(--bd-bg);
     color:var(--bd-text); border-radius:11px; font-size:calc(var(--fs) + 3px); cursor:pointer; display:grid; place-items:center;}
   .iconbtn:active{transform:scale(.96);}
@@ -134,17 +134,10 @@
 <div class="wrap">
   <header>
     <h1 id="title">My List</h1>
+    <button class="iconbtn mic" id="micBtn" title="Add by voice" aria-label="Add by voice">&#127908;</button>
     <button class="iconbtn" id="setBtn" title="Settings" aria-label="Settings">&#9881;</button>
   </header>
-
-  <div class="bar">
-    <input class="q" id="q" list="common" placeholder="Quick add to Description&hellip;" autocomplete="off" enterkeyhint="done">
-    <button class="iconbtn mic" id="micBtn" title="Add by voice" aria-label="Add by voice">&#127908;</button>
-    <button class="btn" id="qAdd">Add</button>
-    <button class="btn ghost" id="addCol" title="Add a column">&#43; Column</button>
-  </div>
   <datalist id="common"></datalist>
-  <details class="quick"><summary>&#9662; Quick add &mdash; common items</summary><div class="chips" id="chips"></div></details>
 
   <div class="twrap"><table id="tbl"><colgroup id="cg"></colgroup><thead id="thd"></thead><tbody id="tb"></tbody></table></div>
 
@@ -186,6 +179,7 @@
 
     <h3>Columns</h3>
     <div class="colmgr" id="colmgr"></div>
+    <button class="btn ghost" id="addColS" style="margin-top:10px; width:100%;">&#43; Add a column</button>
 
     <div class="installhint" id="installHint"></div>
     <div class="row-inline" style="margin-top:16px;">
@@ -236,7 +230,7 @@
   var boldPref=localStorage.getItem("list_bold")==="1";
   var sizePref=localStorage.getItem("list_size")||"m";
 
-  var cg=$("cg"), thd=$("thd"), tb=$("tb"), qEl=$("q"), syncdot=$("syncdot");
+  var cg=$("cg"), thd=$("thd"), tb=$("tb"), syncdot=$("syncdot");
 
   function commit(){ stamp=Date.now(); saveRaw("list_board",board); saveRaw("list_stamp2",stamp); if(window.ListSync&&ListSync.push) ListSync.push(board,stamp); }
   function cols(){ return board.columns.filter(function(c){return !c.hidden;}); }
@@ -404,7 +398,7 @@
       m.appendChild(row);
     });
   }
-  $("addCol").onclick=function(){ var name=prompt("New column name:"); if(!name) return; board.columns.push({key:"c"+uid(),label:name,type:"text",width:150,hidden:false,builtin:false}); commit(); render(); buildColMgr(); };
+  $("addColS").onclick=function(){ var name=prompt("New column name:"); if(!name) return; board.columns.push({key:"c"+uid(),label:name,type:"text",width:150,hidden:false,builtin:false}); commit(); render(); buildColMgr(); };
 
   // theme UI
   function buildPresets(){
@@ -434,9 +428,7 @@
   Array.prototype.forEach.call(document.querySelectorAll("#sizeSeg button"),function(b){ b.onclick=function(){ sizePref=b.getAttribute("data-size"); applyPrefs(); }; });
 
   // quick add + common + voice
-  function buildCommon(){ var dl=$("common"); dl.innerHTML=""; COMMON.forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); }); var ch=$("chips"); ch.innerHTML=""; COMMON.forEach(function(n){ var c=document.createElement("button"); c.className="chip"; c.textContent=n; c.onclick=function(){ addItem(n); }; ch.appendChild(c); }); }
-  $("qAdd").onclick=function(){ var v=qEl.value.trim(); if(v){ addItem(v); qEl.value=""; qEl.focus(); } };
-  qEl.addEventListener("keydown",function(e){ if(e.key==="Enter"){ var v=qEl.value.trim(); if(v){ addItem(v); qEl.value=""; } } });
+  function buildCommon(){ var dl=$("common"); dl.innerHTML=""; COMMON.forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); }); }
   $("clrDone").onclick=function(){ board.rows=board.rows.filter(function(r){return !r.done;}); commit(); render(); };
   $("clrAll").onclick=function(){ if(board.rows.length&&confirm("Delete all rows?")){ board.rows=[]; commit(); render(); } };
 
