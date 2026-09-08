@@ -335,8 +335,8 @@
       var inp=document.createElement("input"); inp.className="cell"; inp.type=c.type==="date"?"date":"text";
       if(idx===0) inp.placeholder="Add an item\u2026";
       if(c.key==="desc") inp.setAttribute("list","common");
-      inp.addEventListener("keydown",function(e){ if(e.key==="Enter") addFromBlank(); });
-      inp.addEventListener("blur",function(){ setTimeout(addFromBlank,120); });
+      inp.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); addFromBlank(true); } });
+      inp.addEventListener("blur",function(){ setTimeout(function(){ var ae=document.activeElement; if(ae&&ae.closest&&ae.closest("tr.addrow")) return; addFromBlank(false); },140); });
       inp._k=c.key; td.appendChild(inp); atr.appendChild(td);
     });
     var ad=document.createElement("td"); ad.className="mini"; atr.appendChild(ad);
@@ -346,14 +346,14 @@
     $("count").textContent=board.rows.length?(board.rows.length+" item"+(board.rows.length!==1?"s":"")+" \u00b7 "+done+" ticked"):"";
   }
 
-  function addFromBlank(){
+  function addFromBlank(focusFirst){
     var inputs=tb.querySelectorAll("tr.addrow .cell"); var any=false, vals={};
-    Array.prototype.forEach.call(inputs,function(inp){ var v=(inp.value||"").trim(); if(v) any=true; });
+    Array.prototype.forEach.call(inputs,function(inp){ if((inp.value||"").trim()) any=true; });
     if(!any) return;
     board.columns.forEach(function(c){ vals[c.key]=""; });
     Array.prototype.forEach.call(inputs,function(inp){ var v=(inp.value||"").trim(); if(inp._k==="priority") v=v.replace(/[^0-9]/g,""); vals[inp._k]=v; });
     board.rows.push({id:uid(),done:false,vals:vals}); commit(); render();
-    var first=tb.querySelector("tr.addrow .cell"); if(first) first.focus();
+    if(focusFirst){ var first=tb.querySelector("tr.addrow .cell"); if(first) first.focus(); }
   }
   function addItem(text){ var vals={}; board.columns.forEach(function(c){ vals[c.key]=""; }); vals.desc=text; board.rows.push({id:uid(),done:false,vals:vals}); commit(); render(); }
 
