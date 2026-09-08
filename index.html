@@ -232,7 +232,11 @@
 
   var cg=$("cg"), thd=$("thd"), tb=$("tb"), syncdot=$("syncdot");
 
-  function commit(){ stamp=Date.now(); saveRaw("list_board",board); saveRaw("list_stamp2",stamp); if(window.ListSync&&ListSync.push) ListSync.push(board,stamp); }
+  var syncTimer=null, pendingRemote=null;
+  function flushSync(){ if(window.ListSync&&ListSync.push){ clearTimeout(syncTimer); syncTimer=null; ListSync.push(board,stamp); } }
+  function commit(){ stamp=Date.now(); saveRaw("list_board",board); saveRaw("list_stamp2",stamp); if(window.ListSync&&ListSync.push){ clearTimeout(syncTimer); syncTimer=setTimeout(flushSync,600); } }
+  function updateCount(){ var d=board.rows.filter(function(r){return r.done;}).length; $("count").textContent=board.rows.length?(board.rows.length+" item"+(board.rows.length!==1?"s":"")+" \u00b7 "+d+" ticked"):""; }
+  function applyRemote(rem){ board=rem.data; if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice(); stamp=rem.stamp; saveRaw("list_board",board); saveRaw("list_stamp2",stamp); render(); buildColMgr(); }
   function cols(){ return board.columns.filter(function(c){return !c.hidden;}); }
   function pad4(v){ if(v===""||v===null||v===undefined) return ""; var n=parseInt(v,10); if(isNaN(n)) return String(v); return (n<0?"-":"")+String(Math.abs(n)).padStart(4,"0"); }
 
@@ -311,23 +315,30 @@
     var hdel=document.createElement("th"); hdel.className="mini"; htr.appendChild(hdel);
     thd.appendChild(htr);
 
-    // body
-    tb.innerHTML="";
-    sortedRows().forEach(function(row){
-      var tr=document.createElement("tr"); if(row.done) tr.className="done";
-      var tdc=document.createElement("td"); tdc.className="mini";
-      var chk=document.createElement("button"); chk.className="chk"; chk.setAttribute("aria-label","Tick"); chk.textContent=row.done?"\u2713":"";
-      chk.onclick=function(){ row.done=!row.done; commit(); render(); };
-      tdc.appendChild(chk); tr.appendChild(tdc);
-      cs.forEach(function(c){ var td=document.createElement("td"); if(c.type==="priority") td.className="pri"; td.appendChild(cellInput(row,c)); tr.appendChild(td); });
-      var tdd=document.createElement("td"); tdd.className="mini";
-      var del=document.createElement("button"); del.className="rowbtn"; del.setAttribute("aria-label","Delete forever"); del.textContent="\u00d7";
-      del.onclick=function(){ board.rows=board.rows.filter(function(x){return x.id!==row.id;}); commit(); render(); };
-      tdd.appendChild(del); tr.appendChild(tdd);
-      tb.appendChild(tr);
-    });
+    // body (built off-DOM in one pass for speed on long lists)
+    var frag=document.createDocumentFragment();
+    sortedRows().forEach(function(row){ frag.appendChild(buildRowTr(row)); });
+    frag.appendChild(buildAddRow());
+    tb.innerHTML=""; tb.appendChild(frag);
+    updateCount();
+  }
 
-    // tap-to-add blank row
+  function buildRowTr(row){
+    var cs=cols();
+    var tr=document.createElement("tr"); tr.setAttribute("data-id",row.id); if(row.done) tr.className="done";
+    var tdc=document.createElement("td"); tdc.className="mini";
+    var chk=document.createElement("button"); chk.className="chk"; chk.setAttribute("aria-label","Tick"); chk.textContent=row.done?"\u2713":"";
+    chk.onclick=function(){ row.done=!row.done; tr.classList.toggle("done",row.done); chk.textContent=row.done?"\u2713":""; updateCount(); commit(); };
+    tdc.appendChild(chk); tr.appendChild(tdc);
+    cs.forEach(function(c){ var td=document.createElement("td"); if(c.type==="priority") td.className="pri"; td.appendChild(cellInput(row,c)); tr.appendChild(td); });
+    var tdd=document.createElement("td"); tdd.className="mini";
+    var del=document.createElement("button"); del.className="rowbtn"; del.setAttribute("aria-label","Delete forever"); del.textContent="\u00d7";
+    del.onclick=function(){ board.rows=board.rows.filter(function(x){return x.id!==row.id;}); if(tr.parentNode) tr.parentNode.removeChild(tr); updateCount(); commit(); };
+    tdd.appendChild(del); tr.appendChild(tdd);
+    return tr;
+  }
+  function buildAddRow(){
+    var cs=cols();
     var atr=document.createElement("tr"); atr.className="addrow";
     var ac=document.createElement("td"); ac.className="mini"; var plus=document.createElement("span"); plus.textContent="+"; plus.style.color="var(--muted)"; ac.appendChild(plus); atr.appendChild(ac);
     cs.forEach(function(c,idx){
@@ -340,10 +351,7 @@
       inp._k=c.key; td.appendChild(inp); atr.appendChild(td);
     });
     var ad=document.createElement("td"); ad.className="mini"; atr.appendChild(ad);
-    tb.appendChild(atr);
-
-    var done=board.rows.filter(function(r){return r.done;}).length;
-    $("count").textContent=board.rows.length?(board.rows.length+" item"+(board.rows.length!==1?"s":"")+" \u00b7 "+done+" ticked"):"";
+    return atr;
   }
 
   function addFromBlank(focusFirst){
@@ -352,10 +360,12 @@
     if(!any) return;
     board.columns.forEach(function(c){ vals[c.key]=""; });
     Array.prototype.forEach.call(inputs,function(inp){ var v=(inp.value||"").trim(); if(inp._k==="priority") v=v.replace(/[^0-9]/g,""); vals[inp._k]=v; });
-    board.rows.push({id:uid(),done:false,vals:vals}); commit(); render();
+    var row={id:uid(),done:false,vals:vals}; board.rows.push(row); commit();
+    if(sort.key){ render(); }
+    else { var addTr=tb.querySelector("tr.addrow"); tb.insertBefore(buildRowTr(row),addTr); Array.prototype.forEach.call(inputs,function(inp){ inp.value=""; }); updateCount(); }
     if(focusFirst){ var first=tb.querySelector("tr.addrow .cell"); if(first) first.focus(); }
   }
-  function addItem(text){ var vals={}; board.columns.forEach(function(c){ vals[c.key]=""; }); vals.desc=text; board.rows.push({id:uid(),done:false,vals:vals}); commit(); render(); }
+  function addItem(text){ var vals={}; board.columns.forEach(function(c){ vals[c.key]=""; }); vals.desc=text; var row={id:uid(),done:false,vals:vals}; board.rows.push(row); commit(); if(sort.key){ render(); } else { var addTr=tb.querySelector("tr.addrow"); tb.insertBefore(buildRowTr(row),addTr); updateCount(); } }
 
   // column resize (pointer = works with S-Pen, touch, mouse)
   function attachResize(grip,c){
@@ -453,10 +463,14 @@
   if(window.ListSync&&ListSync.init){
     ListSync.init({
       onStatus:function(s){ if(s==="synced"||s==="sync on"){ syncdot.className="syncdot on"; syncdot.textContent="\u25CF Synced"; } else if(s==="offline"){ syncdot.className="syncdot off"; syncdot.textContent="\u25CF Can\u2019t reach sync"; } else { syncdot.textContent=""; } },
-      onRemote:function(rem){ if(rem&&rem.data&&typeof rem.stamp==="number"&&rem.stamp>stamp){ board=rem.data; if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice(); stamp=rem.stamp; saveRaw("list_board",board); saveRaw("list_stamp2",stamp); render(); buildColMgr(); } }
+      onRemote:function(rem){ if(!(rem&&rem.data&&typeof rem.stamp==="number"&&rem.stamp>stamp)) return; var ae=document.activeElement; if(ae&&ae.classList&&ae.classList.contains("cell")){ pendingRemote=rem; return; } applyRemote(rem); }
     });
     if(ListSync.justConfigured&&ListSync.justConfigured()) showToast("\u2713 Sync turned on \u2014 this device is now linked.");
   }
+
+  // flush sync + apply any deferred remote update when leaving a cell / hiding the app
+  document.addEventListener("focusout",function(e){ if(e.target&&e.target.classList&&e.target.classList.contains("cell")){ setTimeout(function(){ var ae=document.activeElement; if(ae&&ae.classList&&ae.classList.contains("cell")) return; if(pendingRemote){ var r=pendingRemote; pendingRemote=null; if(r.stamp>stamp) applyRemote(r); } },160); } });
+  window.addEventListener("pagehide",flushSync); document.addEventListener("visibilitychange",function(){ if(document.hidden) flushSync(); });
 
   // boot
   applyTheme(); applyPrefs(); buildCommon(); buildPresets(); buildSaved(); buildColMgr(); render();
