@@ -1,4 +1,4 @@
-var CACHE="mylist-v2";
+var CACHE="mylist-v3";
 var ASSETS=["./","index.html","manifest.webmanifest","icon.svg","sync.js"];
 self.addEventListener("install",function(e){ e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(ASSETS);})); self.skipWaiting(); });
 self.addEventListener("activate",function(e){ e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return k!==CACHE?caches.delete(k):null;}));})); self.clients.claim(); });

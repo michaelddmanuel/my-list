@@ -4,7 +4,7 @@
 // It's saved in this browser's local storage; the shared list lives at /lists/main.
 (function(){
   "use strict";
-  var LID = "main";
+  var LID = "board";
   var CFG_KEY = "list_sync_cfg";
   var justSet = false;
   function getCfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY) || "null"); } catch(e){ return null; } }
@@ -32,12 +32,12 @@
   function pull(){
     if(!enabled()) return;
     fetch(url()).then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(o){ status("synced"); if(o && opts && opts.onRemote){ opts.onRemote({ items:(o.items||[]), stamp:(Number(o.stamp)||0) }); } })
+      .then(function(o){ status("synced"); if(o && opts && opts.onRemote){ opts.onRemote({ data:(o.data||null), stamp:(Number(o.stamp)||0) }); } })
       .catch(function(){ status("offline"); });
   }
-  function push(items, stamp){
+  function push(data, stamp){
     if(!enabled()) return; if(stamp <= lastPush) return; lastPush = stamp;
-    fetch(url(), { method:"PUT", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ items:items, stamp:stamp }) })
+    fetch(url(), { method:"PUT", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ data:data, stamp:stamp }) })
       .then(function(){ status("synced"); })
       .catch(function(){ status("offline"); });
   }
