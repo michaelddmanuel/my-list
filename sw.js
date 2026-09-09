@@ -1,4 +1,4 @@
-var CACHE="mylist-v9";
+var CACHE="mylist-v10";
 var ASSETS=["./","index.html","manifest.webmanifest","icon.svg","icon-192.png","icon-512.png","sf-logo.png","sync.js"];
 self.addEventListener("install",function(e){ e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(ASSETS);})); self.skipWaiting(); });
 self.addEventListener("activate",function(e){ e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return k!==CACHE?caches.delete(k):null;}));})); self.clients.claim(); });

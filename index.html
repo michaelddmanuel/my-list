@@ -68,6 +68,11 @@
   .chips{display:flex; flex-wrap:wrap; gap:7px; padding:8px 2px;}
   .chip{border:1px solid var(--line); background:var(--bd-bg); color:var(--bd-text); border-radius:999px; padding:7px 13px; font-size:calc(var(--fs) - 2px); cursor:pointer;}
   .chip:active{background:var(--accent); color:var(--hd-text);}
+  .bar .fsel{height:var(--tap); border:1px solid var(--line); background:var(--bd-bg); color:var(--bd-text); border-radius:11px; padding:0 10px; font-size:calc(var(--fs) - 1px); font-family:var(--font); outline:none; cursor:pointer; max-width:170px;}
+  .bar .fsel:focus{border-color:var(--accent);}
+  .bar .hd{display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:calc(var(--fs) - 2px); white-space:nowrap; cursor:pointer;}
+  .bar .hd input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer;}
+  .bar .seg button{padding:9px 13px;}
 
   .twrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; -webkit-overflow-scrolling:touch;}
   table{border-collapse:collapse; table-layout:fixed; width:max-content; min-width:100%;}
@@ -154,6 +159,18 @@
   </header>
   <datalist id="common"></datalist>
   <datalist id="roster"></datalist>
+
+  <div class="bar">
+    <input class="q" id="q" type="search" placeholder="Search all items…" autocomplete="off">
+    <div class="seg" id="viewSeg">
+      <button data-view="all" class="on">All</button>
+      <button data-view="open">Open</button>
+      <button data-view="overdue">Overdue</button>
+      <button data-view="done">Done</button>
+    </div>
+    <select class="fsel" id="fAssignee"><option value="">Everyone</option></select>
+    <label class="hd"><input type="checkbox" id="hideDone"> Hide ticked</label>
+  </div>
 
   <div class="twrap"><table id="tbl"><colgroup id="cg"></colgroup><thead id="thd"></thead><tbody id="tb"></tbody></table></div>
 
@@ -252,6 +269,7 @@
   if(!board.roster) board.roster=[];
   var stamp=load("list_stamp2",0);
   var sort=load("list_sort",{key:null,dir:1});
+  var filter=load("list_filter",{q:"",view:"all",assignee:"",hideDone:false});
   var theme=load("list_theme",{hdBg:"#3B322C",hdText:"#EFE7DC",bdBg:"#FAF6F2",bdText:"#2A2420"});
   var savedThemes=load("list_saved_themes",[]);
   var fontPref=localStorage.getItem("list_font")||"system";
@@ -263,8 +281,8 @@
   var syncTimer=null, pendingRemote=null;
   function flushSync(){ if(window.ListSync&&ListSync.push){ clearTimeout(syncTimer); syncTimer=null; ListSync.push(board,stamp); } }
   function commit(){ stamp=Date.now(); saveRaw("list_board",board); saveRaw("list_stamp2",stamp); if(window.ListSync&&ListSync.push){ clearTimeout(syncTimer); syncTimer=setTimeout(flushSync,600); } }
-  function updateCount(){ var d=board.rows.filter(function(r){return r.done;}).length; $("count").textContent=board.rows.length?(board.rows.length+" item"+(board.rows.length!==1?"s":"")+" \u00b7 "+d+" ticked"):""; }
-  function applyRemote(rem){ board=rem.data; if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice(); if(!board.roster) board.roster=[]; stamp=rem.stamp; saveRaw("list_board",board); saveRaw("list_stamp2",stamp); render(); buildColMgr(); buildRoster(); buildRosterUI(); }
+  function updateCount(){ var total=board.rows.length, d=board.rows.filter(function(r){return r.done;}).length; var base= total?(total+" item"+(total!==1?"s":"")+" \u00b7 "+d+" ticked"):""; var shown=tb?tb.querySelectorAll("tr:not(.addrow)").length:total; $("count").textContent = (filtering()&&total) ? (shown+" shown \u00b7 "+base) : base; }
+  function applyRemote(rem){ board=rem.data; if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice(); if(!board.roster) board.roster=[]; stamp=rem.stamp; saveRaw("list_board",board); saveRaw("list_stamp2",stamp); render(); buildColMgr(); buildRoster(); buildRosterUI(); buildAssignee(); }
   function cols(){ return board.columns.filter(function(c){return !c.hidden;}); }
   function pad4(v){ if(v===""||v===null||v===undefined) return ""; var n=parseInt(v,10); if(isNaN(n)) return String(v); return (n<0?"-":"")+String(Math.abs(n)).padStart(4,"0"); }
 
@@ -279,6 +297,35 @@
       });
     }
     return rs;
+  }
+
+  function filtering(){ return !!(filter.q||filter.view!=="all"||filter.assignee||filter.hideDone); }
+  function saveFilter(){ saveRaw("list_filter",filter); }
+  function todayISO(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function matchRow(row){
+    if(filter.assignee && (row.vals.actioned||"")!==filter.assignee) return false;
+    var st=row.vals.status||"", done=row.done||st==="Done";
+    if(filter.view==="open"){ if(done) return false; }
+    else if(filter.view==="done"){ if(!done) return false; }
+    else if(filter.view==="overdue"){ var due=row.vals.due||""; if(done||!due||due>=todayISO()) return false; }
+    if(filter.hideDone && filter.view!=="done" && done) return false;
+    if(filter.q){ var q=filter.q.toLowerCase(), hit=false; for(var k in row.vals){ if(String(row.vals[k]||"").toLowerCase().indexOf(q)>=0){ hit=true; break; } } if(!hit) return false; }
+    return true;
+  }
+  function visibleRows(){ return sortedRows().filter(matchRow); }
+  function buildAssignee(){
+    var sel=$("fAssignee"); if(!sel) return; var cur=filter.assignee;
+    sel.innerHTML=""; var o0=document.createElement("option"); o0.value=""; o0.textContent="Everyone"; sel.appendChild(o0);
+    (board.roster||[]).forEach(function(n){ var o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o); });
+    if(cur && (board.roster||[]).indexOf(cur)<0){ filter.assignee=""; cur=""; }
+    sel.value=cur;
+  }
+  var qTimer=null;
+  function initFilterUI(){
+    var q=$("q"); if(q){ q.value=filter.q; q.addEventListener("input",function(){ filter.q=q.value; saveFilter(); clearTimeout(qTimer); qTimer=setTimeout(render,120); }); }
+    var vs=$("viewSeg"); if(vs){ mark("#viewSeg","data-view",filter.view); Array.prototype.forEach.call(vs.querySelectorAll("button"),function(b){ b.addEventListener("click",function(){ filter.view=b.getAttribute("data-view"); saveFilter(); mark("#viewSeg","data-view",filter.view); render(); }); }); }
+    var fa=$("fAssignee"); if(fa){ fa.addEventListener("change",function(){ filter.assignee=fa.value; saveFilter(); render(); }); }
+    var hd=$("hideDone"); if(hd){ hd.checked=!!filter.hideDone; hd.addEventListener("change",function(){ filter.hideDone=hd.checked; saveFilter(); render(); }); }
   }
 
   function applyTheme(){
@@ -305,7 +352,7 @@
   function cellInput(row,col){
     if(col.type==="status"){
       var sel=statusSelect(row.vals[col.key]); sel.setAttribute("data-k",col.key);
-      sel.addEventListener("change",function(){ row.vals[col.key]=sel.value; sel.setAttribute("data-v",sel.value); commit(); });
+      sel.addEventListener("change",function(){ row.vals[col.key]=sel.value; sel.setAttribute("data-v",sel.value); commit(); if(filtering()) render(); });
       return sel;
     }
     var inp=document.createElement("input"); inp.className="cell"; inp.setAttribute("data-k",col.key);
@@ -356,7 +403,7 @@
 
     // body (built off-DOM in one pass for speed on long lists)
     var frag=document.createDocumentFragment();
-    sortedRows().forEach(function(row){ frag.appendChild(buildRowTr(row)); });
+    visibleRows().forEach(function(row){ frag.appendChild(buildRowTr(row)); });
     frag.appendChild(buildAddRow());
     tb.innerHTML=""; tb.appendChild(frag);
     updateCount();
@@ -367,7 +414,7 @@
     var tr=document.createElement("tr"); tr.setAttribute("data-id",row.id); if(row.done) tr.className="done";
     var tdc=document.createElement("td"); tdc.className="mini";
     var chk=document.createElement("button"); chk.className="chk"; chk.setAttribute("aria-label","Tick"); chk.textContent=row.done?"\u2713":"";
-    chk.onclick=function(){ row.done=!row.done; tr.classList.toggle("done",row.done); chk.textContent=row.done?"\u2713":""; updateCount(); commit(); };
+    chk.onclick=function(){ row.done=!row.done; tr.classList.toggle("done",row.done); chk.textContent=row.done?"\u2713":""; commit(); if(filtering()&&!matchRow(row)){ if(tr.parentNode) tr.parentNode.removeChild(tr); } updateCount(); };
     tdc.appendChild(chk); tr.appendChild(tdc);
     cs.forEach(function(c){ var td=document.createElement("td"); if(c.type==="priority") td.className="pri"; td.appendChild(cellInput(row,c)); tr.appendChild(td); });
     var tdd=document.createElement("td"); tdd.className="mini";
@@ -400,11 +447,11 @@
     board.columns.forEach(function(c){ vals[c.key]=""; });
     Array.prototype.forEach.call(inputs,function(inp){ var v=(inp.value||"").trim(); if(inp._k==="priority") v=v.replace(/[^0-9]/g,""); vals[inp._k]=v; });
     var row={id:uid(),done:false,vals:vals}; board.rows.push(row); commit();
-    if(sort.key){ render(); }
+    if(sort.key||filtering()){ render(); }
     else { var addTr=tb.querySelector("tr.addrow"); tb.insertBefore(buildRowTr(row),addTr); Array.prototype.forEach.call(inputs,function(inp){ inp.value=""; }); updateCount(); }
     if(focusFirst){ var first=tb.querySelector("tr.addrow .cell"); if(first) first.focus(); }
   }
-  function addItem(text){ var vals={}; board.columns.forEach(function(c){ vals[c.key]=""; }); vals.desc=text; var row={id:uid(),done:false,vals:vals}; board.rows.push(row); commit(); if(sort.key){ render(); } else { var addTr=tb.querySelector("tr.addrow"); tb.insertBefore(buildRowTr(row),addTr); updateCount(); } }
+  function addItem(text){ var vals={}; board.columns.forEach(function(c){ vals[c.key]=""; }); vals.desc=text; var row={id:uid(),done:false,vals:vals}; board.rows.push(row); commit(); if(sort.key||filtering()){ render(); } else { var addTr=tb.querySelector("tr.addrow"); tb.insertBefore(buildRowTr(row),addTr); updateCount(); } }
 
   // column resize (pointer = works with S-Pen, touch, mouse)
   function attachResize(grip,c){
@@ -479,8 +526,8 @@
   // quick add + common + voice
   function buildCommon(){ var dl=$("common"); dl.innerHTML=""; COMMON.forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); }); }
   function buildRoster(){ var dl=$("roster"); if(!dl) return; dl.innerHTML=""; (board.roster||[]).forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); }); }
-  function buildRosterUI(){ var el=$("rosterList"); if(!el) return; el.innerHTML=""; (board.roster||[]).forEach(function(n,i){ var chip=document.createElement("span"); chip.className="rchip"; chip.appendChild(document.createTextNode(n)); var x=document.createElement("button"); x.textContent="\u00d7"; x.setAttribute("aria-label","Remove"); x.onclick=function(){ board.roster.splice(i,1); commit(); buildRoster(); buildRosterUI(); }; chip.appendChild(x); el.appendChild(chip); }); }
-  (function(){ var raEl=$("rosterAdd"); if(raEl){ raEl.onclick=function(){ var n=($("rosterName").value||"").trim(); if(!n) return; if(!board.roster) board.roster=[]; board.roster.push(n); commit(); $("rosterName").value=""; buildRoster(); buildRosterUI(); }; var ri=$("rosterName"); if(ri) ri.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); raEl.click(); } }); } })();
+  function buildRosterUI(){ var el=$("rosterList"); if(!el) return; el.innerHTML=""; (board.roster||[]).forEach(function(n,i){ var chip=document.createElement("span"); chip.className="rchip"; chip.appendChild(document.createTextNode(n)); var x=document.createElement("button"); x.textContent="\u00d7"; x.setAttribute("aria-label","Remove"); x.onclick=function(){ board.roster.splice(i,1); commit(); buildRoster(); buildRosterUI(); buildAssignee(); }; chip.appendChild(x); el.appendChild(chip); }); }
+  (function(){ var raEl=$("rosterAdd"); if(raEl){ raEl.onclick=function(){ var n=($("rosterName").value||"").trim(); if(!n) return; if(!board.roster) board.roster=[]; board.roster.push(n); commit(); $("rosterName").value=""; buildRoster(); buildRosterUI(); buildAssignee(); }; var ri=$("rosterName"); if(ri) ri.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); raEl.click(); } }); } })();
   $("clrDone").onclick=function(){ board.rows=board.rows.filter(function(r){return !r.done;}); commit(); render(); };
   $("clrAll").onclick=function(){ if(board.rows.length&&confirm("Delete all rows?")){ board.rows=[]; commit(); render(); } };
 
@@ -515,7 +562,7 @@
   window.addEventListener("pagehide",flushSync); document.addEventListener("visibilitychange",function(){ if(document.hidden) flushSync(); });
 
   // boot
-  applyTheme(); applyPrefs(); buildCommon(); buildRoster(); buildRosterUI(); buildPresets(); buildSaved(); buildColMgr(); render();
+  applyTheme(); applyPrefs(); buildCommon(); buildRoster(); buildRosterUI(); buildAssignee(); initFilterUI(); buildPresets(); buildSaved(); buildColMgr(); render();
 })();
 </script>
 </body>
