@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>My List</title>
+<title>SmartFitter ActionSheet</title>
 <meta name="theme-color" content="#3B322C">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -28,7 +28,7 @@
     --row-alt:color-mix(in srgb, var(--bd-bg) 94%, var(--bd-text));
     --line:color-mix(in srgb, var(--bd-bg) 82%, var(--bd-text));
     --accent:var(--hd-bg); --muted:color-mix(in srgb, var(--bd-text) 55%, var(--bd-bg));
-    --fs:16px; --tap:44px; --pad:9px; --fw:400;
+    --fs:15px; --tap:38px; --pad:6px; --fw:400;
   }
   html[data-size="s"]{--fs:14px; --tap:38px; --pad:6px;}
   html[data-size="l"]{--fs:19px; --tap:54px; --pad:12px;}
@@ -44,9 +44,11 @@
   body{margin:0; background:var(--bd-bg); color:var(--bd-text); font-family:var(--font); font-size:var(--fs); font-weight:var(--fw);
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     -webkit-text-size-adjust:100%; touch-action:manipulation;}
-  .wrap{max-width:1000px; margin:0 auto; padding:5px 8px 18px;}
-  header{display:flex; align-items:center; gap:10px; margin:2px 2px 7px;}
-  header h1{flex:1; min-width:0; margin:0; font-size:calc(var(--fs) + 7px); font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .wrap{width:100%; margin:0; padding:3px 6px 12px;}
+  header{display:flex; align-items:center; gap:9px; margin:2px 0 8px; background:var(--hd-bg); color:var(--hd-text); padding:6px 10px; border-radius:10px;}
+  header .logo{height:26px; width:auto; display:block; flex:0 0 auto;}
+  header .brand{flex:1; min-width:0; margin:0; font-size:calc(var(--fs) + 5px); font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.3px; color:var(--hd-text);}
+  header .iconbtn{background:transparent; color:var(--hd-text); border-color:color-mix(in srgb, var(--hd-text) 42%, transparent);}
   .iconbtn{width:var(--tap); height:var(--tap); min-width:var(--tap); border:1px solid var(--line); background:var(--bd-bg);
     color:var(--bd-text); border-radius:11px; font-size:calc(var(--fs) + 3px); cursor:pointer; display:grid; place-items:center;}
   .iconbtn:active{transform:scale(.96);}
@@ -133,7 +135,8 @@
 <div id="toast" class="toast" role="status"></div>
 <div class="wrap">
   <header>
-    <h1 id="title">My List</h1>
+    <img class="logo" src="sf-logo.png" alt="SmartFitter">
+    <span class="brand" id="title">ActionSheet</span>
     <button class="iconbtn mic" id="micBtn" title="Add by voice" aria-label="Add by voice">&#127908;</button>
     <button class="iconbtn" id="setBtn" title="Settings" aria-label="Settings">&#9881;</button>
   </header>
