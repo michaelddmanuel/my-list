@@ -128,6 +128,18 @@
   .colrow input.t{flex:1; min-width:0; height:38px; border:1px solid var(--line); background:var(--bd-bg); color:var(--bd-text); border-radius:8px; padding:0 9px; font-size:calc(var(--fs) - 1px); font-family:var(--font); outline:none;}
   .colrow .mv{width:34px; height:34px; border:1px solid var(--line); background:var(--bd-bg); color:var(--bd-text); border-radius:8px; cursor:pointer; font-size:15px;}
   .colrow .tag{font-size:calc(var(--fs) - 5px); color:var(--muted); width:52px; text-align:center;}
+  .cell-status{-webkit-appearance:none; appearance:none; cursor:pointer; font-weight:600;
+    background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+    background-position:calc(100% - 14px) calc(50% - 1px),calc(100% - 9px) calc(50% - 1px); background-size:5px 5px,5px 5px; background-repeat:no-repeat; padding-right:24px;}
+  .cell-status[data-v=""]{color:var(--muted); font-weight:400;}
+  .cell-status[data-v="Open"]{color:#b45309; background-color:color-mix(in srgb,#b45309 12%,var(--bd-bg));}
+  .cell-status[data-v="In progress"]{color:#2563eb; background-color:color-mix(in srgb,#2563eb 12%,var(--bd-bg));}
+  .cell-status[data-v="Blocked"]{color:#dc2626; background-color:color-mix(in srgb,#dc2626 13%,var(--bd-bg));}
+  .cell-status[data-v="Done"]{color:#16a34a; background-color:color-mix(in srgb,#16a34a 13%,var(--bd-bg));}
+  .rosterlist{margin-top:10px; display:flex; flex-wrap:wrap;}
+  .rchip{display:inline-flex; align-items:center; gap:4px; background:color-mix(in srgb,var(--bd-bg) 84%,var(--bd-text)); border:1px solid var(--line); border-radius:999px; padding:5px 4px 5px 12px; font-size:calc(var(--fs) - 2px); margin:0 6px 6px 0;}
+  .rchip button{border:none; background:transparent; color:var(--muted); font-size:16px; line-height:1; cursor:pointer; width:22px; height:22px; border-radius:50%;}
+  .rchip button:active{transform:scale(.88);}
   .installhint{margin-top:14px; color:var(--muted); font-size:calc(var(--fs) - 3px); line-height:1.5;}
 </style>
 </head>
@@ -141,6 +153,7 @@
     <button class="iconbtn" id="setBtn" title="Settings" aria-label="Settings">&#9881;</button>
   </header>
   <datalist id="common"></datalist>
+  <datalist id="roster"></datalist>
 
   <div class="twrap"><table id="tbl"><colgroup id="cg"></colgroup><thead id="thd"></thead><tbody id="tb"></tbody></table></div>
 
@@ -184,6 +197,13 @@
     <div class="colmgr" id="colmgr"></div>
     <button class="btn ghost" id="addColS" style="margin-top:10px; width:100%;">&#43; Add a column</button>
 
+    <h3>Team roster</h3>
+    <div class="row-inline">
+      <input class="t" id="rosterName" maxlength="40" placeholder="Add a team member's name">
+      <button class="btn" id="rosterAdd">Add</button>
+    </div>
+    <div class="rosterlist" id="rosterList"></div>
+
     <div class="installhint" id="installHint"></div>
     <div class="row-inline" style="margin-top:16px;">
       <button class="btn" id="installBtn" style="display:none; flex:1;">Install app</button>
@@ -203,10 +223,13 @@
 
   var DEFAULT_COLS=[
     {key:"desc",label:"Description",type:"text",width:240,hidden:false,builtin:true},
+    {key:"actioned",label:"Actioned to",type:"person",width:150,hidden:false,builtin:true},
+    {key:"status",label:"Status",type:"status",width:140,hidden:false,builtin:true},
     {key:"due",label:"Due Date",type:"date",width:150,hidden:false,builtin:true},
     {key:"venue",label:"Venue",type:"text",width:160,hidden:false,builtin:true},
     {key:"priority",label:"Priority",type:"priority",width:110,hidden:false,builtin:true}
   ];
+  var STATUS_OPTS=["","Open","In progress","Blocked","Done"];
   var COMMON=["Fuel","Bread","Milk","Sugar","Eggs","Butter","Coffee","Tea","Rice","Salt","Cooking oil","Flour","Cheese","Chicken","Onions","Potatoes","Tomatoes","Bananas","Apples","Toilet paper","Soap","Toothpaste","Washing powder","Dish soap"];
   var PRESETS=[
     {name:"Bronze",hdBg:"#4A3B27",hdText:"#F3E9D8",bdBg:"#FBF7F0",bdText:"#2A2419"},
@@ -225,6 +248,8 @@
     board={columns:DEFAULT_COLS.slice(),rows:rows};
   }
   if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice();
+  (function(){ var have={}; board.columns.forEach(function(c){have[c.key]=1;}); DEFAULT_COLS.forEach(function(dc){ if(!have[dc.key]){ var i=DEFAULT_COLS.indexOf(dc); board.columns.splice(Math.min(i,board.columns.length),0,Object.assign({},dc)); } }); })();
+  if(!board.roster) board.roster=[];
   var stamp=load("list_stamp2",0);
   var sort=load("list_sort",{key:null,dir:1});
   var theme=load("list_theme",{hdBg:"#3B322C",hdText:"#EFE7DC",bdBg:"#FAF6F2",bdText:"#2A2420"});
@@ -239,7 +264,7 @@
   function flushSync(){ if(window.ListSync&&ListSync.push){ clearTimeout(syncTimer); syncTimer=null; ListSync.push(board,stamp); } }
   function commit(){ stamp=Date.now(); saveRaw("list_board",board); saveRaw("list_stamp2",stamp); if(window.ListSync&&ListSync.push){ clearTimeout(syncTimer); syncTimer=setTimeout(flushSync,600); } }
   function updateCount(){ var d=board.rows.filter(function(r){return r.done;}).length; $("count").textContent=board.rows.length?(board.rows.length+" item"+(board.rows.length!==1?"s":"")+" \u00b7 "+d+" ticked"):""; }
-  function applyRemote(rem){ board=rem.data; if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice(); stamp=rem.stamp; saveRaw("list_board",board); saveRaw("list_stamp2",stamp); render(); buildColMgr(); }
+  function applyRemote(rem){ board=rem.data; if(!board.columns||!board.columns.length) board.columns=DEFAULT_COLS.slice(); if(!board.roster) board.roster=[]; stamp=rem.stamp; saveRaw("list_board",board); saveRaw("list_stamp2",stamp); render(); buildColMgr(); buildRoster(); buildRosterUI(); }
   function cols(){ return board.columns.filter(function(c){return !c.hidden;}); }
   function pad4(v){ if(v===""||v===null||v===undefined) return ""; var n=parseInt(v,10); if(isNaN(n)) return String(v); return (n<0?"-":"")+String(Math.abs(n)).padStart(4,"0"); }
 
@@ -272,11 +297,22 @@
   }
   function mark(sel,attr,val){ Array.prototype.forEach.call(document.querySelectorAll(sel+" button"),function(b){ b.classList.toggle("on",b.getAttribute(attr)===val); }); }
 
+  function statusSelect(val){
+    var sel=document.createElement("select"); sel.className="cell cell-status";
+    STATUS_OPTS.forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o||"\u2014"; sel.appendChild(op); });
+    sel.value=val||""; sel.setAttribute("data-v",sel.value); return sel;
+  }
   function cellInput(row,col){
+    if(col.type==="status"){
+      var sel=statusSelect(row.vals[col.key]); sel.setAttribute("data-k",col.key);
+      sel.addEventListener("change",function(){ row.vals[col.key]=sel.value; sel.setAttribute("data-v",sel.value); commit(); });
+      return sel;
+    }
     var inp=document.createElement("input"); inp.className="cell"; inp.setAttribute("data-k",col.key);
     inp.type = col.type==="date" ? "date" : "text";
     if(col.type==="priority"){ inp.setAttribute("inputmode","numeric"); }
     if(col.key==="desc"){ inp.setAttribute("list","common"); }
+    if(col.type==="person"){ inp.setAttribute("list","roster"); }
     var raw=row.vals[col.key]||"";
     inp.value = col.type==="priority" ? pad4(raw) : raw;
     inp.addEventListener("focus",function(){ if(col.type==="priority") inp.value=raw===""?"":String(raw); });
@@ -346,9 +382,9 @@
     var ac=document.createElement("td"); ac.className="mini"; var plus=document.createElement("span"); plus.textContent="+"; plus.style.color="var(--muted)"; ac.appendChild(plus); atr.appendChild(ac);
     cs.forEach(function(c,idx){
       var td=document.createElement("td"); if(c.type==="priority") td.className="pri";
-      var inp=document.createElement("input"); inp.className="cell"; inp.type=c.type==="date"?"date":"text";
-      if(idx===0) inp.placeholder="Add an item\u2026";
-      if(c.key==="desc") inp.setAttribute("list","common");
+      var inp;
+      if(c.type==="status"){ inp=statusSelect(""); }
+      else { inp=document.createElement("input"); inp.className="cell"; inp.type=c.type==="date"?"date":"text"; if(idx===0) inp.placeholder="Add an item\u2026"; if(c.key==="desc") inp.setAttribute("list","common"); if(c.type==="person") inp.setAttribute("list","roster"); }
       inp.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); addFromBlank(true); } });
       inp.addEventListener("blur",function(){ setTimeout(function(){ var ae=document.activeElement; if(ae&&ae.closest&&ae.closest("tr.addrow")) return; addFromBlank(false); },140); });
       inp._k=c.key; td.appendChild(inp); atr.appendChild(td);
@@ -442,6 +478,9 @@
 
   // quick add + common + voice
   function buildCommon(){ var dl=$("common"); dl.innerHTML=""; COMMON.forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); }); }
+  function buildRoster(){ var dl=$("roster"); if(!dl) return; dl.innerHTML=""; (board.roster||[]).forEach(function(n){ var o=document.createElement("option"); o.value=n; dl.appendChild(o); }); }
+  function buildRosterUI(){ var el=$("rosterList"); if(!el) return; el.innerHTML=""; (board.roster||[]).forEach(function(n,i){ var chip=document.createElement("span"); chip.className="rchip"; chip.appendChild(document.createTextNode(n)); var x=document.createElement("button"); x.textContent="\u00d7"; x.setAttribute("aria-label","Remove"); x.onclick=function(){ board.roster.splice(i,1); commit(); buildRoster(); buildRosterUI(); }; chip.appendChild(x); el.appendChild(chip); }); }
+  (function(){ var raEl=$("rosterAdd"); if(raEl){ raEl.onclick=function(){ var n=($("rosterName").value||"").trim(); if(!n) return; if(!board.roster) board.roster=[]; board.roster.push(n); commit(); $("rosterName").value=""; buildRoster(); buildRosterUI(); }; var ri=$("rosterName"); if(ri) ri.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); raEl.click(); } }); } })();
   $("clrDone").onclick=function(){ board.rows=board.rows.filter(function(r){return !r.done;}); commit(); render(); };
   $("clrAll").onclick=function(){ if(board.rows.length&&confirm("Delete all rows?")){ board.rows=[]; commit(); render(); } };
 
@@ -476,7 +515,7 @@
   window.addEventListener("pagehide",flushSync); document.addEventListener("visibilitychange",function(){ if(document.hidden) flushSync(); });
 
   // boot
-  applyTheme(); applyPrefs(); buildCommon(); buildPresets(); buildSaved(); buildColMgr(); render();
+  applyTheme(); applyPrefs(); buildCommon(); buildRoster(); buildRosterUI(); buildPresets(); buildSaved(); buildColMgr(); render();
 })();
 </script>
 </body>
